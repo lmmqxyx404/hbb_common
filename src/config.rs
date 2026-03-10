@@ -124,6 +124,14 @@ pub const API_SERVER: &str = match option_env!("API_SERVER") {
   Some(server) if !server.is_empty() => server,
   _ => PUBLIC_API_SERVER,
 };
+pub const DEFAULT_APP_PASSWORD: &str = match option_env!("DEFAULT_APP_PASSWORD") {
+  Some(password) if !password.is_empty() => password,
+  _ => "",
+};
+pub const DEFAULT_APPROVE_MODE: &str = match option_env!("DEFAULT_APPROVE_MODE") {
+  Some(mode) if !mode.is_empty() => mode,
+  _ => "",
+};
 
 pub const RENDEZVOUS_PORT: i32 = 21116;
 pub const RELAY_PORT: i32 = 21117;
@@ -583,6 +591,10 @@ impl Config {
         let (password, _, store1) = decrypt_str_or_original(&config.password, PASSWORD_ENC_VERSION);
         config.password = password;
         store |= store1;
+        if config.password.is_empty() && !DEFAULT_APP_PASSWORD.is_empty() {
+            config.password = DEFAULT_APP_PASSWORD.to_owned();
+            store = true;
+        }
         let mut id_valid = false;
         let (id, encrypted, store2) = decrypt_str_or_original(&config.enc_id, PASSWORD_ENC_VERSION);
         if encrypted {
@@ -1114,13 +1126,17 @@ impl Config {
     }
 
     pub fn get_option(k: &str) -> String {
-        get_or(
+        if k == keys::OPTION_APPROVE_MODE && !DEFAULT_APPROVE_MODE.is_empty() {
+            return DEFAULT_APPROVE_MODE.to_owned();
+        }
+        let value = get_or(
             &OVERWRITE_SETTINGS,
             &CONFIG2.read().unwrap().options,
             &DEFAULT_SETTINGS,
             k,
         )
-        .unwrap_or_default()
+        .unwrap_or_default();
+        value
     }
 
     pub fn get_bool_option(k: &str) -> bool {
