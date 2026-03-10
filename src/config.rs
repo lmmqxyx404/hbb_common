@@ -119,6 +119,11 @@ pub const RS_PUB_KEY: &str = match option_env!("RS_PUB_KEY") {
   Some(key) if !key.is_empty() => key,
   _ => PUBLIC_RS_PUB_KEY,
 };
+pub const PUBLIC_API_SERVER: &str = "https://admin.rustdesk.com";
+pub const API_SERVER: &str = match option_env!("API_SERVER") {
+  Some(server) if !server.is_empty() => server,
+  _ => PUBLIC_API_SERVER,
+};
 
 pub const RENDEZVOUS_PORT: i32 = 21116;
 pub const RELAY_PORT: i32 = 21117;
