@@ -1195,6 +1195,16 @@ impl Config {
         Self::clear_trusted_devices();
     }
 
+    pub fn force_set_permanent_password(password: &str) {
+        let mut config = CONFIG.write().unwrap();
+        if password == config.password {
+            return;
+        }
+        config.password = password.into();
+        config.store();
+        Self::clear_trusted_devices();
+    }
+
     pub fn get_permanent_password() -> String {
         let mut password = CONFIG.read().unwrap().password.clone();
         if password.is_empty() {
