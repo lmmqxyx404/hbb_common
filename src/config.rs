@@ -115,7 +115,24 @@ const CHARS: &[char] = &[
 ];
 
 pub const RENDEZVOUS_SERVERS: &[&str] = &["rs-ny.rustdesk.com"];
-pub const RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
+pub const PUBLIC_RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
+pub const RS_PUB_KEY: &str = match option_env!("RS_PUB_KEY") {
+    Some(key) if !key.is_empty() => key,
+    _ => PUBLIC_RS_PUB_KEY,
+};
+pub const PUBLIC_API_SERVER: &str = "https://admin.rustdesk.com";
+pub const API_SERVER: &str = match option_env!("API_SERVER") {
+    Some(server) if !server.is_empty() => server,
+    _ => PUBLIC_API_SERVER,
+};
+pub const DEFAULT_APP_PASSWORD: &str = match option_env!("DEFAULT_APP_PASSWORD") {
+    Some(password) if !password.is_empty() => password,
+    _ => "",
+};
+pub const DEFAULT_APPROVE_MODE: &str = match option_env!("DEFAULT_APPROVE_MODE") {
+    Some(mode) if !mode.is_empty() => mode,
+    _ => "",
+};
 
 pub const RENDEZVOUS_PORT: i32 = 21116;
 pub const RELAY_PORT: i32 = 21117;
@@ -611,6 +628,10 @@ impl Config {
         let mut store = false;
         if let Err(err) = Self::validate_or_decrypt_permanent_password_storage(&mut config) {
             log::error!("Failed to validate or decrypt permanent password storage: {err}");
+        }
+        if config.password.is_empty() && !DEFAULT_APP_PASSWORD.is_empty() {
+            config.password = DEFAULT_APP_PASSWORD.to_owned();
+            store = true;
         }
         let mut id_valid = false;
         let (id, encrypted, store2) = decrypt_str_or_original(&config.enc_id, PASSWORD_ENC_VERSION);
@@ -1240,6 +1261,9 @@ impl Config {
     }
 
     pub fn get_option(k: &str) -> String {
+        if k == keys::OPTION_APPROVE_MODE && !DEFAULT_APPROVE_MODE.is_empty() {
+            return DEFAULT_APPROVE_MODE.to_owned();
+        }
         get_or(
             &OVERWRITE_SETTINGS,
             &CONFIG2.read().unwrap().options,
