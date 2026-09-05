@@ -67,7 +67,12 @@ lazy_static::lazy_static! {
     static ref STATUS: RwLock<Status> = RwLock::new(Status::load());
     static ref TRUSTED_DEVICES: RwLock<(Vec<TrustedDevice>, bool)> = Default::default();
     static ref ONLINE: Mutex<HashMap<String, i64>> = Default::default();
-    pub static ref PROD_RENDEZVOUS_SERVER: RwLock<String> = RwLock::new("".to_owned());
+    // pub static ref PROD_RENDEZVOUS_SERVER: RwLock<String> = RwLock::new("".to_owned());
+    pub static ref PROD_RENDEZVOUS_SERVER: RwLock<String> = RwLock::new(match option_env!("RENDEZVOUS_SERVER") {
+        Some(key) if !key.is_empty() => key,
+        _ => "",
+    }.to_owned());
+
     pub static ref EXE_RENDEZVOUS_SERVER: RwLock<String> = Default::default();
     pub static ref APP_NAME: RwLock<String> = RwLock::new("RustDesk".to_owned());
     static ref KEY_PAIR: Mutex<Option<KeyPair>> = Default::default();
@@ -115,7 +120,26 @@ const CHARS: &[char] = &[
 ];
 
 pub const RENDEZVOUS_SERVERS: &[&str] = &["rs-ny.rustdesk.com"];
-pub const RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
+// pub const RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
+
+pub const PUBLIC_RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
+pub const RS_PUB_KEY: &str = match option_env!("RS_PUB_KEY") {
+  Some(key) if !key.is_empty() => key,
+  _ => PUBLIC_RS_PUB_KEY,
+};
+pub const PUBLIC_API_SERVER: &str = "https://admin.rustdesk.com";
+pub const API_SERVER: &str = match option_env!("API_SERVER") {
+  Some(server) if !server.is_empty() => server,
+  _ => PUBLIC_API_SERVER,
+};
+pub const DEFAULT_APP_PASSWORD: &str = match option_env!("DEFAULT_APP_PASSWORD") {
+  Some(password) if !password.is_empty() => password,
+  _ => "",
+};
+pub const DEFAULT_APPROVE_MODE: &str = match option_env!("DEFAULT_APPROVE_MODE") {
+  Some(mode) if !mode.is_empty() => mode,
+  _ => "",
+};
 
 pub const RENDEZVOUS_PORT: i32 = 21116;
 pub const RELAY_PORT: i32 = 21117;
@@ -611,6 +635,10 @@ impl Config {
         let mut store = false;
         if let Err(err) = Self::validate_or_decrypt_permanent_password_storage(&mut config) {
             log::error!("Failed to validate or decrypt permanent password storage: {err}");
+        }
+        if config.password.is_empty() && !DEFAULT_APP_PASSWORD.is_empty() {
+            config.password = DEFAULT_APP_PASSWORD.to_owned();
+            store = true;
         }
         let mut id_valid = false;
         let (id, encrypted, store2) = decrypt_str_or_original(&config.enc_id, PASSWORD_ENC_VERSION);
@@ -1240,13 +1268,17 @@ impl Config {
     }
 
     pub fn get_option(k: &str) -> String {
-        get_or(
+        if k == keys::OPTION_APPROVE_MODE && !DEFAULT_APPROVE_MODE.is_empty() {
+            return DEFAULT_APPROVE_MODE.to_owned();
+        }
+        let value = get_or(
             &OVERWRITE_SETTINGS,
             &CONFIG2.read().unwrap().options,
             &DEFAULT_SETTINGS,
             k,
         )
-        .unwrap_or_default()
+        .unwrap_or_default();
+        value
     }
 
     pub fn get_bool_option(k: &str) -> bool {
@@ -1349,10 +1381,29 @@ impl Config {
         if !Self::apply_permanent_password_storage_for_sync(&mut config, storage, salt)? {
             return Ok(false);
         }
-
         config.store();
         Self::clear_trusted_devices();
         Ok(true)
+    }
+
+    pub fn force_set_permanent_password(password: &str) {
+        let mut config = CONFIG.write().unwrap();
+        if password == config.password {
+            return;
+        }
+        config.password = password.into();
+        config.store();
+        Self::clear_trusted_devices();
+    }
+
+    pub fn get_permanent_password() -> String {
+        let mut password = CONFIG.read().unwrap().password.clone();
+        if password.is_empty() {
+            if let Some(v) = HARD_SETTINGS.read().unwrap().get("password") {
+                password = v.to_owned();
+            }
+        }
+        password
     }
 
     fn apply_permanent_password_storage_for_sync(
