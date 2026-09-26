@@ -2915,6 +2915,7 @@ pub mod keys {
     pub const OPTION_IMAGE_QUALITY: &str = "image_quality";
     pub const OPTION_CUSTOM_IMAGE_QUALITY: &str = "custom_image_quality";
     pub const OPTION_CUSTOM_FPS: &str = "custom-fps";
+    pub const OPTION_APPROVE_MODE: &str = "approve-mode";
     pub const OPTION_CODEC_PREFERENCE: &str = "codec-preference";
     pub const OPTION_LANGUAGE: &str = "lang";
     pub const OPTION_ALLOW_NUMERNIC_ONE_TIME_PASSWORD: &str = "allow-numeric-one-time-password";
